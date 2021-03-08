@@ -39,11 +39,11 @@ shap_values
 # %% >> Visualize local predictions
 shap.initjs()
 # Force plot
-prediction = rf.predict(X_test[:1])[0]
+prediction = rf.predict(X_test[start_index:end_index])[0]
 print(f"The RF predicted: {prediction}")
 shap.force_plot(explainer.expected_value[1],
                 shap_values[1],
-                X_test[:1]) # for column names
+                X_test[start_index:end_index]) # for values
 
 # %% >> Visualize global features
 # Feature summary

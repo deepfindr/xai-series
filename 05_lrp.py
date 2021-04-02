@@ -49,9 +49,7 @@ train_dataset = torchvision.datasets.ImageFolder(
         root=TRAIN_ROOT,
         transform=transforms.Compose([
                       transforms.Resize((255,255)),
-                      transforms.ToTensor(),
-                      #transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                      #                      std=[0.229, 0.224, 0.225])
+                      transforms.ToTensor()
         ])
 )
 
@@ -59,9 +57,7 @@ test_dataset = torchvision.datasets.ImageFolder(
         root=TEST_ROOT,
         transform=transforms.Compose([
                       transforms.Resize((255,255)),
-                      transforms.ToTensor(),
-                      #transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                      #                      std=[0.229, 0.224, 0.225])
+                      transforms.ToTensor()
         ])
 )
 
@@ -185,7 +181,7 @@ def apply_lrp_on_vgg16(model, image):
     # >>> Step 4: Backpropagate relevance scores
     relevances = [None] * n_layers + [activations[-1]]
     # Iterate over the layers in reverse order
-    for layer in range(1, n_layers)[::-1]:
+    for layer in range(0, n_layers)[::-1]:
         current = layers[layer]
         # Treat max pooling layers as avg pooling
         if isinstance(current, torch.nn.MaxPool2d):
@@ -217,38 +213,30 @@ def apply_lrp_on_vgg16(model, image):
         else:
             relevances[layer] = relevances[layer+1]
 
-    # >>> Step 5: Apply final propagation rule for pixels
-    # Reshape image for imagenet
-    mean = torch.Tensor([0.485, 0.456, 0.406]).reshape(1,-1,1,1).to(device)
-    std  = torch.Tensor([0.229, 0.224, 0.225]).reshape(1,-1,1,1).to(device)
-    activations[0] = (activations[0].data).requires_grad_(True)
-    lb = (activations[0].data*0+(0-mean)/std).requires_grad_(True)
-    hb = (activations[0].data*0+(1-mean)/std).requires_grad_(True)
-
-    z = layers[0].forward(activations[0]) + 1e-9                     # step 1 (a)
-    z -= new_layer(layers[0],lambda p: p.clamp(min=0)).forward(lb)    # step 1 (b)
-    z -= new_layer(layers[0],lambda p: p.clamp(max=0)).forward(hb)    # step 1 (c)
-    s = (relevances[1]/z).data                                       # step 2
-    (z*s).sum().backward(); c,cp,cm = activations[0].grad,lb.grad,hb.grad # step 3
-    relevances[0] = (activations[0]*c+lb*cp+hb*cm).data              # step 4
+    # >>> Potential Step 5: Apply different propagation rule for pixels
     return relevances[0]
 
 # %%
 # Calculate relevances for first image in this test batch
-image_id = 28
+image_id = 29
 image_relevances = apply_lrp_on_vgg16(model, inputs[image_id])
 image_relevances = image_relevances.permute(0,2,3,1).detach().cpu().numpy()[0]
 image_relevances = np.interp(image_relevances, (image_relevances.min(),
                                                 image_relevances.max()), 
-                                                (-1, +1))
+                                                (0, 1))
 # Show relevances
 pred_label = list(test_dataset.class_to_idx.keys())[
              list(test_dataset.class_to_idx.values())
             .index(labels[image_id])]
 assert outputs[image_id] == labels[image_id]
 print("Groundtruth for this image: ", pred_label)
-plt.imshow(image_relevances)
-plt.show()
-# Show image
-plt.imshow(inputs[image_id].permute(1,2,0).detach().cpu().numpy())
 
+# Plot images next to each other
+plt.axis('off')
+plt.subplot(1,2,1)
+plt.imshow(image_relevances[:,:,0], cmap="seismic")
+plt.subplot(1,2,2)
+plt.imshow(inputs[image_id].permute(1,2,0).detach().cpu().numpy())
+plt.show()
+
+# %%

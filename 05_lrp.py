@@ -8,12 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch.optim as optim
 import copy
+import pandas as pd 
 
-"""
-For a deeper explanation also have a look at:
-http://iphome.hhi.de/samek/pdf/MonXAI19.pdf
-"""
- 
 # Set GPU device
 print(torch.cuda.is_available())
 device = torch.device("cuda:0")
@@ -111,6 +107,7 @@ comparison
 # %% Layerwise relevance propagation for VGG16
 # For other CNN architectures this code might become more complex
 # Source: https://git.tu-berlin.de/gmontavon/lrp-tutorial
+# http://iphome.hhi.de/samek/pdf/MonXAI19.pdf
 
 def new_layer(layer, g):
     """Clone a layer and pass its parameters through the function g."""
@@ -218,7 +215,7 @@ def apply_lrp_on_vgg16(model, image):
 
 # %%
 # Calculate relevances for first image in this test batch
-image_id = 29
+image_id = 31
 image_relevances = apply_lrp_on_vgg16(model, inputs[image_id])
 image_relevances = image_relevances.permute(0,2,3,1).detach().cpu().numpy()[0]
 image_relevances = np.interp(image_relevances, (image_relevances.min(),
@@ -228,15 +225,17 @@ image_relevances = np.interp(image_relevances, (image_relevances.min(),
 pred_label = list(test_dataset.class_to_idx.keys())[
              list(test_dataset.class_to_idx.values())
             .index(labels[image_id])]
-assert outputs[image_id] == labels[image_id]
-print("Groundtruth for this image: ", pred_label)
+if outputs[image_id] == labels[image_id]:
+    print("Groundtruth for this image: ", pred_label)
 
-# Plot images next to each other
-plt.axis('off')
-plt.subplot(1,2,1)
-plt.imshow(image_relevances[:,:,0], cmap="seismic")
-plt.subplot(1,2,2)
-plt.imshow(inputs[image_id].permute(1,2,0).detach().cpu().numpy())
-plt.show()
+    # Plot images next to each other
+    plt.axis('off')
+    plt.subplot(1,2,1)
+    plt.imshow(image_relevances[:,:,0], cmap="seismic")
+    plt.subplot(1,2,2)
+    plt.imshow(inputs[image_id].permute(1,2,0).detach().cpu().numpy())
+    plt.show()
+else:
+    print("This image is not classified correctly.")
 
 # %%
